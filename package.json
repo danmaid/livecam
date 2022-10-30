@@ -8,7 +8,10 @@
     "lint": "eslint src",
     "format": "prettier --write src",
     "test": "jest",
-    "dev": "ts-node src"
+    "dev": "ts-node src",
+    "start": "pm2 start --name sensor dist",
+    "stop": "pm2 stop sensor",
+    "status": "pm2 status"
   },
   "repository": {
     "type": "git",
@@ -35,6 +38,7 @@
   },
   "dependencies": {
     "node-fetch": "^2.6.7",
+    "pm2": "^5.2.2",
     "serialport": "^10.4.0"
   }
 }
