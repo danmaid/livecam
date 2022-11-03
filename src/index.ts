@@ -1,37 +1,90 @@
-import { SerialPort, ReadlineParser } from 'serialport'
+import { spawn, ChildProcess } from 'node:child_process'
+import { createInterface } from 'node:readline'
+import EventSource from 'eventsource'
 import fetch from 'node-fetch'
+import { v4 as uuid } from 'uuid'
 
-// https://wings.twelite.info/how-to-use/parent-mode/receive-message/app_aria
+const endpoint = 'https://labo.danmaid.com'
+// const endpoint = 'http://localhost:8520'
+const events = new EventSource(endpoint)
 
-function parseTemperature(v: string): number {
-  return parseInt(v, 16) / 100
+events.onerror = (ev) => console.error('Error: ', ev)
+events.onopen = (ev) => console.log('Connected.', ev)
+events.onmessage = (ev) => {
+  const { event } = JSON.parse(ev.data)
+  if (event.camera !== 'labo1') return
+  if (event.type === 'start' && typeof event.url === 'string') start(event)
+  if (event.type === 'stop') stop()
 }
 
-function parseMagnet(v: string): 'open' | 'N' | 'S' {
-  return v[1] === '1' ? 'N' : v[1] === '2' ? 'S' : 'open'
+const procs = new Set<ChildProcess>()
+
+function post(event: unknown) {
+  return fetch(endpoint, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(event),
+  })
 }
 
-SerialPort.list().then((v) => {
-  for (const info of v) {
-    console.log(info)
-    const port = new SerialPort({ path: info.path, baudRate: 115200 })
-    const parser = port.pipe(new ReadlineParser())
-    parser.on('data', async (chunk: string) => {
-      const id = chunk.slice(15, 23)
-      const data = {
-        type: 'sensed',
-        date: new Date(),
-        temperature: parseTemperature(chunk.slice(103, 107)),
-        humidity: parseTemperature(chunk.slice(115, 119)),
-        magnet: parseMagnet(chunk.slice(93, 95)),
-        raw: chunk,
-      }
-      fetch(`https://labo.danmaid.com/sensors/${id}/events`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(data),
-      })
-      console.log(data)
-    })
-  }
+function start({ url }: { url: string }) {
+  const proc = spawn(
+    '/usr/bin/ffmpeg',
+    '-f lavfi -i anullsrc -f v4l2 -input_format h264 -s 1920x1080 -thread_queue_size 8192 -i /dev/video0 -c:v copy -b:v 6000k -f flv'
+      .split(' ')
+      .concat([url])
+  )
+  const id = uuid()
+  const procInfo = () => ({
+    id,
+    connected: proc.connected,
+    signalCode: proc.signalCode,
+    exitCode: proc.exitCode,
+    killed: proc.killed,
+    spawnfile: proc.spawnfile,
+    spawnargs: proc.spawnargs,
+    pid: proc.pid,
+  })
+
+  proc.on('exit', (code, siangl) => {
+    const event = { type: 'exited', ...procInfo(), code, siangl }
+    post(event)
+    console.log(event)
+  })
+  proc.on('spawn', () => {
+    const event = { type: 'spawned', ...procInfo() }
+    post(event)
+    console.log(event)
+  })
+
+  const stdout = createInterface(proc.stdout)
+  stdout.on('line', (line) => {
+    const event = { type: 'stdout', id, line }
+    post(event)
+    console.log(event)
+  })
+
+  const stderr = createInterface(proc.stderr)
+  stderr.on('line', (line) => {
+    const event = { type: 'stderr', id, line }
+    post(event)
+    console.log(event)
+  })
+
+  procs.add(proc)
+}
+
+function stop() {
+  procs.forEach((proc) => proc.kill())
+}
+
+process.on('SIGINT', () => {
+  console.log('SIGINT')
+  events.close()
 })
+process.on('exit', () => {
+  console.log('exit')
+  events.close()
+})
+
+console.log('start')

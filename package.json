@@ -1,5 +1,5 @@
 {
-  "name": "sensor",
+  "name": "livecam",
   "version": "0.0.1",
   "description": "",
   "main": "index.js",
@@ -9,24 +9,26 @@
     "format": "prettier --write src",
     "test": "jest",
     "dev": "ts-node src",
-    "start": "pm2 start --name sensor dist",
-    "stop": "pm2 stop sensor",
+    "start": "pm2 start --name livecam dist",
+    "stop": "pm2 stop livecam",
     "status": "pm2 status"
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/danmaid/sensor.git"
+    "url": "git+https://github.com/danmaid/livecam.git"
   },
   "author": "danmaid",
   "license": "MIT",
   "bugs": {
-    "url": "https://github.com/danmaid/sensor/issues"
+    "url": "https://github.com/danmaid/livecam/issues"
   },
-  "homepage": "https://github.com/danmaid/sensor#readme",
+  "homepage": "https://github.com/danmaid/livecam#readme",
   "devDependencies": {
     "@tsconfig/node16": "^1.0.3",
+    "@types/eventsource": "^1.1.10",
     "@types/jest": "^29.2.0",
     "@types/node-fetch": "^2.6.2",
+    "@types/uuid": "^8.3.4",
     "@typescript-eslint/eslint-plugin": "^5.41.0",
     "@typescript-eslint/parser": "^5.41.0",
     "eslint": "^8.26.0",
@@ -37,8 +39,9 @@
     "typescript": "^4.8.4"
   },
   "dependencies": {
+    "eventsource": "^2.0.2",
     "node-fetch": "^2.6.7",
     "pm2": "^5.2.2",
-    "serialport": "^10.4.0"
+    "uuid": "^9.0.0"
   }
 }
